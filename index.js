@@ -1,84 +1,101 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const mongoose = require('mongoose');
 
-// Import config from JSON file
-const config = require('./config/config.json');
-const prefix = config.PREFIX;
-
-// Import addXP from utils/level.js
-const { addXP } = require('./utils/level');
-
+// Create a new client instance with necessary intents
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
-  ]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
+    ]
 });
 
-// Global error handler for unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Promise Rejection:', reason);
-});
+// Load bot token and MongoDB URI from .env
+const TOKEN = process.env.TOKEN;
+const MONGO_URI = process.env.MONGO_URI || null;
 
-// Dynamically load commands from the "commands" folder recursively
-const commands = new Map();
+// Connect to MongoDB (if enabled)
+if (MONGO_URI) {
+    mongoose.connect(MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    })
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.error('❌ MongoDB Connection Error:', err));
+}
 
+// Initialize command collection
+client.commands = new Collection();
+
+// Function to load commands dynamically
 const loadCommands = (dir) => {
-  fs.readdirSync(dir).forEach((file) => {
-    const fullPath = path.join(dir, file);
-    if (fs.statSync(fullPath).isDirectory()) {
-      loadCommands(fullPath);
-    } else if (file.endsWith('.js')) {
-      try {
-        const command = require(fullPath);
-        if (command.name) {
-          commands.set(command.name, command);
-          console.log(`Loaded command: ${command.name}`);
-        } else {
-          console.warn(`Skipping invalid command file (missing name): ${file}`);
+    const files = fs.readdirSync(dir);
+    files.forEach((file) => {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+            loadCommands(fullPath); // Recursively load subdirectories
+        } else if (file.endsWith('.js')) {
+            try {
+                const command = require(fullPath);
+                if (command.name) {
+                    client.commands.set(command.name, command);
+                    console.log(`✅ Loaded command: ${command.name}`);
+                } else {
+                    console.warn(`⚠️ Skipping invalid command file: ${file} (missing name)`);
+                }
+            } catch (error) {
+                console.error(`❌ Failed to load command ${file}:`, error);
+            }
         }
-      } catch (error) {
-        console.error(`Failed to load command ${file}:`, error);
-      }
-    }
-  });
+    });
 };
 
+// Load all commands from the "commands" directory
 loadCommands(path.join(__dirname, 'commands'));
 
+// Handle unhandled promise rejections globally
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Promise Rejection:', reason);
+});
+
+// Handle client ready event
 client.once('ready', () => {
-  console.log(`${client.user.tag} is online!`);
+    console.log(`✅ ${client.user.tag} is online and ready!`);
 });
 
+// Command handler
 client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
+    if (message.author.bot || !message.guild) return; // Ignore bot messages and DMs
 
-  console.log(`📩 Message received: "${message.content}" from ${message.author.tag}`);
+    const prefix = '?';
+    if (!message.content.startsWith(prefix)) return;
 
-  // Award XP for every message (adjust XP as needed)
-  addXP(message.author.id, 10);
+    const args = message.content.slice(prefix.length).trim().split(/\s+/);
+    const commandName = args.shift().toLowerCase();
 
-  if (!message.content.startsWith(prefix)) return;
-  const args = message.content.slice(prefix.length).trim().split(/\s+/);
-  const commandName = args.shift().toLowerCase();
+    if (!client.commands.has(commandName)) {
+        console.log(`⚠️ Command "${commandName}" not found.`);
+        return;
+    }
 
-  if (!commands.has(commandName)) {
-    console.log(`⚠️ Command "${commandName}" not found.`);
-    return;
-  }
+    const command = client.commands.get(commandName);
 
-  const command = commands.get(commandName);
-  try {
-    await command.execute(message, args);
-    console.log(`✅ Executed command: ${commandName}`);
-  } catch (error) {
-    console.error(`❌ Error executing command "${commandName}":`, error);
-    message.reply('An error occurred while executing this command.');
-  }
+    try {
+        await command.execute(message, args);
+        console.log(`✅ Executed command: ${commandName}`);
+    } catch (error) {
+        console.error(`❌ Error executing command "${commandName}":`, error);
+        message.reply({
+            content: '⚠️ An error occurred while executing this command. Please try again later.',
+            ephemeral: true  // Prevents repeated error messages
+        });
+    }
 });
 
-client.login(process.env.TOKEN);
+// Log the bot in with the token
+client.login(TOKEN);
