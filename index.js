@@ -2,7 +2,6 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const mongoose = require('mongoose');
 
 // Create a new client instance with necessary intents
 const client = new Client({
@@ -14,19 +13,8 @@ const client = new Client({
     ]
 });
 
-// Load bot token and MongoDB URI from .env
+// Load bot token from .env
 const TOKEN = process.env.TOKEN;
-const MONGO_URI = process.env.MONGO_URI || null;
-
-// Connect to MongoDB (if enabled)
-if (MONGO_URI) {
-    mongoose.connect(MONGO_URI, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    })
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch(err => console.error('❌ MongoDB Connection Error:', err));
-}
 
 // Initialize command collection
 client.commands = new Collection();
@@ -99,3 +87,4 @@ client.on('messageCreate', async (message) => {
 
 // Log the bot in with the token
 client.login(TOKEN);
+
