@@ -1,13 +1,13 @@
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { modRoles } = require('../../config/config.json');
+const { modRoles, modLogChannelId } = require('../../config/config.json');
 
 const logsPath = path.join(__dirname, '../../data/moderationLogs.json');
 
 module.exports = {
     name: 'warn',
-    description: 'Warn a user.',
+    description: 'Warn a user and log the action.',
     async execute(message, args) {
         if (!message.member.roles.cache.some(role => modRoles.includes(role.id))) {
             return message.reply('❌ You do not have permission to use this command.');
@@ -28,13 +28,17 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('⚠️ User Warned')
             .setColor(0xffcc00)
-            .setDescription(`**${user.tag}** has been warned.`)
+            .setThumbnail(user.displayAvatarURL())
             .addFields(
-                { name: '👮 Moderator', value: message.author.tag, inline: true },
-                { name: '📜 Reason', value: reason, inline: false }
+                { name: 'User', value: `${user.tag} (ID: ${user.id})`, inline: true },
+                { name: 'Moderator', value: `${message.author.tag} (ID: ${message.author.id})`, inline: true },
+                { name: 'Reason', value: reason, inline: false }
             )
             .setTimestamp();
 
         message.channel.send({ embeds: [embed] });
+
+        const logChannel = message.guild.channels.cache.get(modLogChannelId);
+        if (logChannel) logChannel.send({ embeds: [embed] });
     }
 };
