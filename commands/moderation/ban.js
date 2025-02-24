@@ -1,13 +1,13 @@
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { modRoles } = require('../../config/config.json');
+const { modRoles, modLogChannel } = require('../../config/config.json');
 
 const logsPath = path.join(__dirname, '../../data/moderationLogs.json');
 
 module.exports = {
     name: 'ban',
-    description: 'Ban a user from the server.',
+    description: 'Ban a user from the server and log the action.',
     async execute(message, args) {
         if (!message.member.roles.cache.some(role => modRoles.includes(role.id))) {
             return message.reply('❌ You do not have permission to use this command.');
@@ -38,6 +38,9 @@ module.exports = {
             .setTimestamp();
 
         message.channel.send({ embeds: [embed] });
+
+        const logChannel = message.guild.channels.cache.get(modLogChannel);
+        if (logChannel) logChannel.send({ embeds: [embed] });
     }
 };
 
