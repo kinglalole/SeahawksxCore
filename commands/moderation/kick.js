@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { modRoles, modLogChannel } = require('../../config/config.json');
+const { modRoles, modLogChannelId } = require('../../config/config.json');
 
 const logsPath = path.join(__dirname, '../../data/moderationLogs.json');
 
@@ -30,17 +30,17 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('👢 User Kicked')
             .setColor(0xffa500)
-            .setDescription(`**${user.user.tag}** has been kicked.`)
+            .setThumbnail(user.user.displayAvatarURL())
             .addFields(
-                { name: '👮 Moderator', value: message.author.tag, inline: true },
-                { name: '📜 Reason', value: reason, inline: false }
+                { name: 'User', value: `${user.user.tag} (ID: ${user.id})`, inline: true },
+                { name: 'Moderator', value: `${message.author.tag} (ID: ${message.author.id})`, inline: true },
+                { name: 'Reason', value: reason, inline: false }
             )
             .setTimestamp();
 
         message.channel.send({ embeds: [embed] });
 
-        const logChannel = message.guild.channels.cache.get(modLogChannel);
+        const logChannel = message.guild.channels.cache.get(modLogChannelId);
         if (logChannel) logChannel.send({ embeds: [embed] });
     }
 };
-
