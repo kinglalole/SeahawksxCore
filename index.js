@@ -2,6 +2,13 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const draftTracker = require('./commands/utility/draftTracker.js');
+    
+// Run draft tracker every 5 minutes
+    setInterval(() => {
+        draftTracker.execute(client);
+    }, 300000);
+});
 
 // Create a new client instance with necessary intents
 const client = new Client({
